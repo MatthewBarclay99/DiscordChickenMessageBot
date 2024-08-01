@@ -1,12 +1,9 @@
 import discord
 from discord.ext import commands
 import yaml
-import random
-from datetime import datetime as dt
 from discord.ext import tasks as discordTasks
 import requests
 from datetime import datetime, time
-import pytz
 from collections import defaultdict
 
 with open('config.yaml', 'r') as file:
@@ -89,18 +86,18 @@ async def on_ready():
 
 
 #---------Handles Commands---------
-@client.command()
-async def ping(ctx):
-    embed = discord.Embed(description = "pong")
-    await ctx.send(embed = embed)
+# @client.command()
+# async def ping(ctx):
+#     embed = discord.Embed(description = "pong")
+#     await ctx.send(embed = embed)
 
-@client.command()
-async def echo(ctx, *args):
-    output = ''
-    for word in args:
-        output += word + ' '
-    embed = discord.Embed(description = output)
-    await ctx.send(embed = embed)
+# @client.command()
+# async def echo(ctx, *args):
+#     output = ''
+#     for word in args:
+#         output += word + ' '
+#     embed = discord.Embed(description = output)
+#     await ctx.send(embed = embed)
 
 
 @client.command()
@@ -246,23 +243,23 @@ async def setMessageTime(ctx, newTime):
         embed = discord.Embed(description = 'Error: invalid minutes. Must be from 0 to 59')
         await ctx.send(embed = embed)
         return
-    global hours, minutes
+    global hours, minutes, configFile
     hours = newHour
     minutes = newMinutes
-    #messageDaily.stop()
+    configFile['messageTime']['hour'] = hours
+    configFile['messageTime']['minutes'] = minutes
+    with open('config.yaml', 'w') as file:
+        yaml.dump(configFile, file, default_flow_style=False)
     messageDaily.change_interval(time=time(hour=hours,minute=minutes, tzinfo=local_tz))
-    print(messageDaily.time)
-    
     messageDaily.restart()
-    print(messageDaily.time)
-    embed = discord.Embed(description = ' -- Time set')
+    embed = discord.Embed(description = ' -- Time set (will go into effect after the next scheduled message)')
     await ctx.send(embed = embed)
     
 
 
 @client.command()
 async def viewMessageTime(ctx):
-    embed = discord.Embed(description = 'Time set is ' + str(hours) + ":" + str(minutes))
+    embed = discord.Embed(description = 'Time set is ' + messageDaily.next_iteration.strftime("%H:%M"))
     await ctx.send(embed = embed)
 
 @client.command()
@@ -431,7 +428,11 @@ def printRewards():
     rewardCounter=0
     for team in rewardDict:
         teamData, opponentData = get_API(team.get('ID'), team.get('sport'))
-        if(teamData!="" or teamData.get('incomplete')):
+        if(teamData==""):
+            break
+        elif(teamData.get('incomplete')):
+            break
+        else:
             for reward_i in team.get('rewards'):
                 if(reward_i.get('rewardFUN')(teamData,reward_i.get('minScore'),opponentData)):
                     if(reward_i.get('homeReq') & bool(teamData.get('homeAway')!="home")):
@@ -445,12 +446,17 @@ def printRewards():
    
 
 async def printRewardsasync():
+    print('sending daily message...')
     rewards_text = ""
     todays_rewards = []
     rewardCounter=0
     for team in rewardDict:
         teamData, opponentData = get_API(team.get('ID'), team.get('sport'))
-        if(teamData!=""or teamData.get('incomplete')):
+        if(teamData==""):
+            break
+        elif(teamData.get('incomplete')):
+            break
+        else:
             for reward_i in team.get('rewards'):
                 if(reward_i.get('rewardFUN')(teamData,reward_i.get('minScore'),opponentData)):
                     if(reward_i.get('homeReq') & bool(teamData.get('homeAway')!="home")):
@@ -478,8 +484,9 @@ async def custom_strftime(format, t):
 @discordTasks.loop(time=time(hour=hours,minute=minutes, tzinfo=local_tz))
 async def messageDaily():
     global blacklistedDays
-    if dt.now().strftime('%A'). lower() not in blacklistedDays:
+    if datetime.now().strftime('%A'). lower() not in blacklistedDays:
         await printRewardsasync()
+        
 
 #TODO: save to config file
 #TODO: better help function
