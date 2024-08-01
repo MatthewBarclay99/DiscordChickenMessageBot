@@ -5,7 +5,8 @@ import random
 from datetime import datetime as dt
 from discord.ext import tasks as discordTasks
 import requests
-from datetime import datetime
+from datetime import datetime, time
+import pytz
 
 with open('config.yaml', 'r') as file:
     configFile = yaml.safe_load(file)
@@ -18,9 +19,10 @@ client = commands.Bot(command_prefix='-', intents = discord.Intents.all())
 #users that will receive messages
 #users = []
 #numTasks = 2
-hour = configFile['messageTime']['hour']
+hours = configFile['messageTime']['hour']
 minutes = configFile['messageTime']['minutes']
 blacklistedDays = [item.lower() for item in configFile['blacklistedDays']]
+local_tz = datetime.now().astimezone().tzinfo
 
 def scoreAtLeast(teamData,score, dummy):
     return int(teamData.get('score'))>=score
@@ -232,16 +234,23 @@ async def setMessageTime(ctx, newTime):
         embed = discord.Embed(description = 'Error: invalid minutes. Must be from 0 to 59')
         await ctx.send(embed = embed)
         return
-    global hour, minutes
-    hour = newHour
+    global hours, minutes
+    hours = newHour
     minutes = newMinutes
+    #messageDaily.stop()
+    messageDaily.change_interval(time=time(hour=hours,minute=minutes, tzinfo=local_tz))
+    print(messageDaily.time)
+    
+    messageDaily.restart()
+    print(messageDaily.time)
     embed = discord.Embed(description = ' -- Time set')
     await ctx.send(embed = embed)
+    
 
 
 @client.command()
 async def viewMessageTime(ctx):
-    embed = discord.Embed(description = 'Time set is ' + str(hour) + ":" + str(minutes))
+    embed = discord.Embed(description = 'Time set is ' + str(hours) + ":" + str(minutes))
     await ctx.send(embed = embed)
 
 @client.command()
@@ -422,9 +431,9 @@ async def printRewardsasync():
         rewards_text = rewards_text + "\n" + text
     if(rewards_text!=""):
         rewards_text = "🚨🚨🚨" +"\n" + str(rewardCounter) + " rewards today:" + "\n" + rewards_text
-    embed = discord.Embed(description = rewards_text)
-    channel = discord.utils.get(client.get_all_channels(), name='general')
-    await channel.send(embed = embed)
+        embed = discord.Embed(description = rewards_text)
+        channel = discord.utils.get(client.get_all_channels(), name='general')
+        await channel.send(embed = embed)
 
 #methods for getting suffix in date, ex "May 10th"
 #decides what suffix to use
@@ -436,12 +445,10 @@ async def custom_strftime(format, t):
     return t.strftime(format).replace('{S}', str(t.day) + await suffix(t.day))
 
 #loop for sending message
-@discordTasks.loop(minutes=1.0)
+@discordTasks.loop(time=time(hour=hours,minute=minutes, tzinfo=local_tz))
 async def messageDaily():
     global blacklistedDays
-    if dt.now().strftime('%A'). lower() in blacklistedDays:
-        return
-    if (dt.now().hour == hour) and (dt.now().strftime('%M') == str(minutes)):
+    if dt.now().strftime('%A'). lower() not in blacklistedDays:
         await printRewardsasync()
 
 #TODO: save to config file
@@ -452,3 +459,5 @@ async def on_ready():
     messageDaily.start()
 #run bot using token    
 client.run(TOKEN)
+
+
