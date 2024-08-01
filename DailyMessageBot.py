@@ -7,6 +7,7 @@ from discord.ext import tasks as discordTasks
 import requests
 from datetime import datetime, time
 import pytz
+from collections import defaultdict
 
 with open('config.yaml', 'r') as file:
     configFile = yaml.safe_load(file)
@@ -46,17 +47,20 @@ Angels = {'ID':"3",
           'rewards':[{'rewardFUN':scoreAtLeast,
                     'minScore':7,
                     'homeReq':True,
-                    'reward_text':cfa_text},
+                    'reward_text':cfa_text,
+                    'reward_tag':'chicken'},
                     {'rewardFUN':shutout,
                     'homeReq':False,
-                    'reward_text':"Free 6in pizza from Mountain Mike's (w/ purchase)"}
+                    'reward_text':"Free 6in pizza from Mountain Mike's (w/ purchase)",
+                    'reward_tag':'pizza'}
                     ]
           }
 Dodgers = {'ID':"19",
            'sport':"baseball",
            'rewards':[{'rewardFUN':winGame,
                     'homeReq':True,
-                    'reward_text':"$5 Panda Express plate! Use promo code 'DODGERSWIN'"}
+                    'reward_text':"$5 Panda Express plate! Use promo code 'DODGERSWIN'",
+                    'reward_tag':'panda'}
                     ]
           }
 Ducks =   {'ID':"25",
@@ -64,14 +68,16 @@ Ducks =   {'ID':"25",
          'rewards':[{'rewardFUN':scoreAtLeast,
                     'minScore':5,
                     'homeReq':True,
-                    'reward_text':cfa_text}
+                    'reward_text':cfa_text,
+                    'reward_tag':'chicken'}
                     ]
          }
 LAFC = {'ID':"18966",
         'sport':"soccer",
         'rewards':[{'rewardFUN':winGame,
                     'homeReq':True,
-                    'reward_text':cfa_text}
+                    'reward_text':cfa_text,
+                    'reward_tag':'chicken'}
                     ]
         }
 rewardDict = [Angels,Dodgers,Ducks,LAFC]
@@ -100,6 +106,12 @@ async def echo(ctx, *args):
 @client.command()
 async def chickenToday(ctx):
     rewards_text = printRewards()
+    embed = discord.Embed(description = rewards_text)
+    await ctx.send(embed = embed)
+
+@client.command()
+async def chickenPossible(ctx):
+    rewards_text = printRewardsPossible()
     embed = discord.Embed(description = rewards_text)
     await ctx.send(embed = embed)
 
@@ -324,7 +336,7 @@ async def viewBlockedDays(ctx):
     await ctx.send(embed = embed)
 
 
-# #---------General Functions---------
+#---------General Functions---------
 # #randomly selects 'numTasks' number of tasks from yaml file, weighted
 # async def getRandomTasks():
 #     hat = []
@@ -382,8 +394,8 @@ def find_team_result(league_results, team_id):
                     opponent=competitors_dict
             if found:
                 if not competition_dict.get('status').get('type').get('completed'):
-                    team = ""
-                    opponent = ""
+                    team['incomplete'] = True
+                    opponent['incomplete'] = True
                 break
         if found:
             break
@@ -395,13 +407,31 @@ def get_API(teamID, sport):
     league_scores = get_league_scores_today(API_URL, today)
     return find_team_result(league_scores, teamID)
 
+def printRewardsPossible():
+    rewards_text = ""
+    todays_rewards = defaultdict(int)
+    rewardCounter=0
+    for team in rewardDict:
+        teamData, opponentData = get_API(team.get('ID'), team.get('sport'))
+        if(teamData!=""):
+            for reward_i in team.get('rewards'):
+                if(reward_i.get('homeReq') & bool(teamData.get('homeAway')!="home")):
+                    break
+                todays_rewards[reward_i.get('reward_tag')]+=1
+                rewardCounter+=1
+    rewards_text = ("There are " + str(rewardCounter) + " rewards possible today:")
+    for key, value in todays_rewards.items(): 
+        rewards_text = rewards_text + "\n" + str(value) + "x " + key
+    return rewards_text
+
+
 def printRewards():
     rewards_text = ""
     todays_rewards = []
     rewardCounter=0
     for team in rewardDict:
         teamData, opponentData = get_API(team.get('ID'), team.get('sport'))
-        if(teamData!=""):
+        if(teamData!="" or teamData.get('incomplete')):
             for reward_i in team.get('rewards'):
                 if(reward_i.get('rewardFUN')(teamData,reward_i.get('minScore'),opponentData)):
                     if(reward_i.get('homeReq') & bool(teamData.get('homeAway')!="home")):
@@ -420,7 +450,7 @@ async def printRewardsasync():
     rewardCounter=0
     for team in rewardDict:
         teamData, opponentData = get_API(team.get('ID'), team.get('sport'))
-        if(teamData!=""):
+        if(teamData!=""or teamData.get('incomplete')):
             for reward_i in team.get('rewards'):
                 if(reward_i.get('rewardFUN')(teamData,reward_i.get('minScore'),opponentData)):
                     if(reward_i.get('homeReq') & bool(teamData.get('homeAway')!="home")):
