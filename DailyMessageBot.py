@@ -4,21 +4,76 @@ import yaml
 import random
 from datetime import datetime as dt
 from discord.ext import tasks as discordTasks
+import requests
+from datetime import datetime
 
 with open('config.yaml', 'r') as file:
     configFile = yaml.safe_load(file)
 TOKEN = configFile['token']
-tasks = configFile['tasks']
+#tasks = configFile['tasks']
 #connect to discord 
-client = discord.Client()
+client = discord.Client(intents = discord.Intents.all())
 #set command prefix
-client = commands.Bot(command_prefix='dmb ')
+client = commands.Bot(command_prefix='-', intents = discord.Intents.all())
 #users that will receive messages
-users = []
-numTasks = 2
+#users = []
+#numTasks = 2
 hour = configFile['messageTime']['hour']
 minutes = configFile['messageTime']['minutes']
 blacklistedDays = [item.lower() for item in configFile['blacklistedDays']]
+
+def scoreAtLeast(teamData,score, dummy):
+    return int(teamData.get('score'))>=score
+
+def winGame(teamData,dummy, dummy2):
+    return bool(teamData.get('winner'))
+
+def shutout(dummy, dummy2, oppData):
+    return int(oppData.get('score'))==0
+
+def save(teamData,dummy,dummy2):
+    return int(teamData.get('statistics')[3].get('displayValue'))==1
+
+baseURL = {'baseball':"https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard?dates=",
+           'hockey':"https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/scoreboard?dates=",
+           'soccer':"https://site.api.espn.com/apis/site/v2/sports/soccer/usa.1/scoreboard?dates="}
+cfa_text = "Free Chic-fil-a sandwich! Open the app before midnight."
+
+Angels = {'ID':"3",
+          'sport':"baseball",
+          'rewards':[{'rewardFUN':scoreAtLeast,
+                    'minScore':7,
+                    'homeReq':True,
+                    'reward_text':cfa_text},
+                    {'rewardFUN':shutout,
+                    'homeReq':False,
+                    'reward_text':"Free 6in pizza from Mountain Mike's (w/ purchase)"}
+                    ]
+          }
+Dodgers = {'ID':"19",
+           'sport':"baseball",
+           'rewards':[{'rewardFUN':winGame,
+                    'homeReq':True,
+                    'reward_text':"$5 Panda Express plate! Use promo code 'DODGERSWIN'"}
+                    ]
+          }
+Ducks =   {'ID':"25",
+           'sport':"hockey",
+         'rewards':[{'rewardFUN':scoreAtLeast,
+                    'minScore':5,
+                    'homeReq':True,
+                    'reward_text':cfa_text}
+                    ]
+         }
+LAFC = {'ID':"18966",
+        'sport':"soccer",
+        'rewards':[{'rewardFUN':winGame,
+                    'homeReq':True,
+                    'reward_text':cfa_text}
+                    ]
+        }
+rewardDict = [Angels,Dodgers,Ducks,LAFC]
+
 #--------Handles Events---------
 @client.event
 async def on_ready():
@@ -39,120 +94,127 @@ async def echo(ctx, *args):
     embed = discord.Embed(description = output)
     await ctx.send(embed = embed)
 
-@client.command()
-async def addUser(ctx, *newUsers):
-    if len(newUsers) == 0:
-        embed = discord.Embed(description = " -- Error: no users selects.")
-        await ctx.send(embed = embed)
-        return
-    for user in newUsers:
-        #remove extra parts of id, comes as <@!555>
-        user = user.replace("<@!","")
-        user = user.replace(">","")
-        #get the user from the server and add to users array
-        user = ctx.message.guild.get_member(int(user))
-        users.append(user)
-    reply = " -- User added." if len(newUsers) == 1 else " -- Users added."
-    embed = discord.Embed(description = reply)
-    await ctx.send(embed = embed)
 
 @client.command()
-async def testTasks(ctx):
-    #if there are no users you cannot send tasks
-    if len(users) == 0:
-        embed = discord.Embed(description = " -- There are no users added.")
-        await ctx.send(embed = embed)
-        return
-    await dmTasks()
-    embed = discord.Embed(description = " -- DM's sent.")
+async def chickenToday(ctx):
+    rewards_text = printRewards()
+    embed = discord.Embed(description = rewards_text)
     await ctx.send(embed = embed)
 
+# @client.command()
+# async def addUser(ctx, *newUsers):
+#     if len(newUsers) == 0:
+#         embed = discord.Embed(description = " -- Error: no users selects.")
+#         await ctx.send(embed = embed)
+#         return
+#     for user in newUsers:
+#         #remove extra parts of id, comes as <@!555>
+#         user = user.replace("<@!","F")
+#         user = user.replace(">","")
+#         #get the user from the server and add to users array
+#         user = ctx.message.guild.get_member(int(user))
+#         users.append(user)
+#     reply = " -- User added." if len(newUsers) == 1 else " -- Users added."
+#     embed = discord.Embed(description = reply)
+#     await ctx.send(embed = embed)
 
-#sends each task in a list
-@client.command()
-async def viewTasks(ctx):
-    embed = discord.Embed(title = "All tasks")
-    #each list of items (each 'items' is an int from config)
-    for items in tasks:
-        allTasks = ''
-        #access each item in the array associated with that int if there are any there
-        if len(tasks[items]) > 0:
-            for eachOptions in tasks[items]:
-                # add each option to string if they exist
-                allTasks += '\t' + eachOptions + '\n'
-            embed.add_field(name=str(items), value=allTasks, inline=False)
-    await ctx.send(embed = embed)
+# @client.command()
+# async def testTasks(ctx):
+#     #if there are no users you cannot send tasks
+#     if len(users) == 0:
+#         embed = discord.Embed(description = " -- There are no users added.")
+#         await ctx.send(embed = embed)
+#         return
+#     await dmTasks()
+#     embed = discord.Embed(description = " -- DM's sent.")
+#     await ctx.send(embed = embed)
+
+
+# #sends each task in a list
+# @client.command()
+# async def viewTasks(ctx):
+#     embed = discord.Embed(title = "All tasks")
+#     #each list of items (each 'items' is an int from config)
+#     for items in tasks:
+#         allTasks = ''
+#         #access each item in the array associated with that int if there are any there
+#         if len(tasks[items]) > 0:
+#             for eachOptions in tasks[items]:
+#                 # add each option to string if they exist
+#                 allTasks += '\t' + eachOptions + '\n'
+#             embed.add_field(name=str(items), value=allTasks, inline=False)
+#     await ctx.send(embed = embed)
     
     
-@client.command()
-async def setNumTasks(ctx, num):
-    global numTasks
-    numTasks = int(num)
-    embed = discord.Embed(description = " -- " +str(num) + " tasks will be send instead now.")
-    await ctx.send(embed = embed)
+# @client.command()
+# async def setNumTasks(ctx, num):
+#     global numTasks
+#     numTasks = int(num)
+#     embed = discord.Embed(description = " -- " +str(num) + " tasks will be send instead now.")
+#     await ctx.send(embed = embed)
 
-@client.command()
-async def getUsers(ctx):
-    allUsers = ''
-    if len(users) == 0:
-        embed = discord.Embed(description = " -- There are currently no users.")
-        await ctx.send(embed = embed)
-        return
-    for user in users:
-        #remove extra parts of id, comes as <@!555>
-        allUsers += str(user) + "\n"
-    embed = discord.Embed(description = allUsers)
-    await ctx.send(embed = embed)
+# @client.command()
+# async def getUsers(ctx):
+#     allUsers = ''
+#     if len(users) == 0:
+#         embed = discord.Embed(description = " -- There are currently no users.")
+#         await ctx.send(embed = embed)
+#         return
+#     for user in users:
+#         #remove extra parts of id, comes as <@!555>
+#         allUsers += str(user) + "\n"
+#     embed = discord.Embed(description = allUsers)
+#     await ctx.send(embed = embed)
 
-@client.command()
-async def removeUser(ctx, *removeUsers):
-    if len(removeUsers) == 0:
-        embed = discord.Embed(description = " -- Error: no users selects.")
-        await ctx.send(embed = embed)
-        return
-    for user in removeUsers:
-        #remove extra parts of id, comes as <@!555>
-        user = user.replace("<@!","")
-        user = user.replace(">","")
-        #get the user from the server and remove from users array
-        user = ctx.message.guild.get_member(int(user))
-        users.remove(user)
-    reply = " -- User removed." if len(removeUsers) == 1 else " -- Users removed."
-    embed = discord.Embed(description = reply)
-    await ctx.send(embed = embed)
+# @client.command()
+# async def removeUser(ctx, *removeUsers):
+#     if len(removeUsers) == 0:
+#         embed = discord.Embed(description = " -- Error: no users selects.")
+#         await ctx.send(embed = embed)
+#         return
+#     for user in removeUsers:
+#         #remove extra parts of id, comes as <@!555>
+#         user = user.replace("<@!","")
+#         user = user.replace(">","")
+#         #get the user from the server and remove from users array
+#         user = ctx.message.guild.get_member(int(user))
+#         users.remove(user)
+#     reply = " -- User removed." if len(removeUsers) == 1 else " -- Users removed."
+#     embed = discord.Embed(description = reply)
+#     await ctx.send(embed = embed)
 
-@client.command()
-async def addTask(ctx, weight, newTask):
-    #validate input
-    if not weight.isnumeric:
-        embed = discord.Embed(description = "Error: first value must be an integer (qutations are not allowed)")
-        await ctx.send(embed = embed)
-        return
-    #see if the weight exists then add accordingly
-    global tasks
-    if int(weight) in tasks:
-        tasks[int(weight)].append(newTask)
-    else:
-        tasks[int(weight)] = [newTask]
-    embed = discord.Embed(description = "-- Task added.")
-    await ctx.send(embed = embed)
+# @client.command()
+# async def addTask(ctx, weight, newTask):
+#     #validate input
+#     if not weight.isnumeric:
+#         embed = discord.Embed(description = "Error: first value must be an integer (qutations are not allowed)")
+#         await ctx.send(embed = embed)
+#         return
+#     #see if the weight exists then add accordingly
+#     global tasks
+#     if int(weight) in tasks:
+#         tasks[int(weight)].append(newTask)
+#     else:
+#         tasks[int(weight)] = [newTask]
+#     embed = discord.Embed(description = "-- Task added.")
+#     await ctx.send(embed = embed)
 
-@client.command()
-async def removeTask(ctx, removeTask):
-    #validate input
-    if (type(removeTask) != str):
-        embed = discord.Embed(description = 'Error: second value must be an string (ex. "Read book").')
-        await ctx.send(embed = embed)
-        return
-    global tasks
-    for weight in tasks:
-        if removeTask in tasks[weight]:
-            tasks[weight].remove(removeTask)
-            embed = discord.Embed(description = '-- Removed item from ' + str(weight) + ' weight class.')
-            await ctx.send(embed = embed)
-            return
-    embed = discord.Embed(description = 'Error: task does not exists')
-    await ctx.send(embed = embed)
+# @client.command()
+# async def removeTask(ctx, removeTask):
+#     #validate input
+#     if (type(removeTask) != str):
+#         embed = discord.Embed(description = 'Error: second value must be an string (ex. "Read book").')
+#         await ctx.send(embed = embed)
+#         return
+#     global tasks
+#     for weight in tasks:
+#         if removeTask in tasks[weight]:
+#             tasks[weight].remove(removeTask)
+#             embed = discord.Embed(description = '-- Removed item from ' + str(weight) + ' weight class.')
+#             await ctx.send(embed = embed)
+#             return
+#     embed = discord.Embed(description = 'Error: task does not exists')
+#     await ctx.send(embed = embed)
 
 @client.command()
 async def setMessageTime(ctx, newTime):
@@ -253,44 +315,117 @@ async def viewBlockedDays(ctx):
     await ctx.send(embed = embed)
 
 
-#---------General Functions---------
-#randomly selects 'numTasks' number of tasks from yaml file, weighted
-async def getRandomTasks():
-    hat = []
-    #each list of items (each 'items' is an int from config)
-    for items in tasks:
-        #access each item in the array associated with that int
-        for eachOptions in tasks[items]:
-            # add it to hat[] x = that int times
-            for _ in range(items):
-                hat.append(eachOptions)
-    #randomly get distinct values from hat, numTasks is how many
-    picks = []
-    while (len(picks) < numTasks):
-        ranChoice = random.choice(hat)
-        if ranChoice not in picks:
-            picks.append(ranChoice)
-    return picks
+# #---------General Functions---------
+# #randomly selects 'numTasks' number of tasks from yaml file, weighted
+# async def getRandomTasks():
+#     hat = []
+#     #each list of items (each 'items' is an int from config)
+#     for items in tasks:
+#         #access each item in the array associated with that int
+#         for eachOptions in tasks[items]:
+#             # add it to hat[] x = that int times
+#             for _ in range(items):
+#                 hat.append(eachOptions)
+#     #randomly get distinct values from hat, numTasks is how many
+#     picks = []
+#     while (len(picks) < numTasks):
+#         ranChoice = random.choice(hat)
+#         if ranChoice not in picks:
+#             picks.append(ranChoice)
+#     return picks
 
-async def dmTasks():
-    todaysTasks = await getRandomTasks()
-    todaysDate = await custom_strftime('%A, %B {S}.', dt.now())
-    todaysMessage = "\n\nGoodmorning! Today is " + todaysDate + "\n" + "Here are your tasks for today!\n"
-    itemCount = 1
-    embed = discord.Embed(
-        title = 'Tasks for ' + todaysDate,
-        description = todaysMessage,
-        color = 1752220
-    )
-    # add feild for each task
-    for items in todaysTasks:
-        embed.add_field(name="Task " + str(itemCount) + " ", value=items, inline=False)
-        itemCount += 1
-    #send message to each user  
-    for user in users:
-        await user.create_dm()
-        await user.dm_channel.send(embed=embed)
+# async def dmTasks():
+#     todaysTasks = await getRandomTasks()
+#     todaysDate = await custom_strftime('%A, %B {S}.', dt.now())
+#     todaysMessage = "\n\nGoodmorning! Today is " + todaysDate + "\n" + "Here are your tasks for today!\n"
+#     itemCount = 1
+#     embed = discord.Embed(
+#         title = 'Tasks for ' + todaysDate,
+#         description = todaysMessage,
+#         color = 1752220
+#     )
+#     # add feild for each task
+#     for items in todaysTasks:
+#         embed.add_field(name="Task " + str(itemCount) + " ", value=items, inline=False)
+#         itemCount += 1
+#     #send message to each user  
+#     for user in users:
+#         await user.create_dm()
+#         await user.dm_channel.send(embed=embed)
+
+
+
+def get_league_scores_today(baseURL, date):
+    request = requests.get(baseURL+date)
+    return request.json().get('events')
+
+def find_team_result(league_results, team_id):
+    found = False
+    team = ""
+    opponent = ""
+    for i, event_dict in enumerate(league_results):
+        for j, competition_dict in enumerate(event_dict.get('competitions')):
+            for k, competitors_dict in enumerate(competition_dict.get('competitors')):
+                if(competitors_dict.get('id')==team_id):
+                    found=True
+                    team=competitors_dict
+                else:
+                    opponent=competitors_dict
+            if found:
+                if not competition_dict.get('status').get('type').get('completed'):
+                    team = ""
+                    opponent = ""
+                break
+        if found:
+            break
+    return team, opponent
+
+def get_API(teamID, sport):
+    API_URL = baseURL.get(sport)
+    today = datetime.today().strftime('%Y%m%d')
+    league_scores = get_league_scores_today(API_URL, today)
+    return find_team_result(league_scores, teamID)
+
+def printRewards():
+    rewards_text = ""
+    todays_rewards = []
+    rewardCounter=0
+    for team in rewardDict:
+        teamData, opponentData = get_API(team.get('ID'), team.get('sport'))
+        if(teamData!=""):
+            for reward_i in team.get('rewards'):
+                if(reward_i.get('rewardFUN')(teamData,reward_i.get('minScore'),opponentData)):
+                    if(reward_i.get('homeReq') & bool(teamData.get('homeAway')!="home")):
+                        break
+                    todays_rewards.append(reward_i.get('reward_text'))
+                    rewardCounter+=1
+    rewards_text = ("Today you have " + str(rewardCounter) + " rewards available to redeem:")
+    for text in todays_rewards: 
+        rewards_text = rewards_text + "\n" + text
+    return rewards_text
    
+
+async def printRewardsasync():
+    rewards_text = ""
+    todays_rewards = []
+    rewardCounter=0
+    for team in rewardDict:
+        teamData, opponentData = get_API(team.get('ID'), team.get('sport'))
+        if(teamData!=""):
+            for reward_i in team.get('rewards'):
+                if(reward_i.get('rewardFUN')(teamData,reward_i.get('minScore'),opponentData)):
+                    if(reward_i.get('homeReq') & bool(teamData.get('homeAway')!="home")):
+                        break
+                    todays_rewards.append(reward_i.get('reward_text'))
+                    rewardCounter+=1
+    for text in todays_rewards: 
+        rewards_text = rewards_text + "\n" + text
+    if(rewards_text!=""):
+        rewards_text = "🚨🚨🚨" +"\n" + str(rewardCounter) + " rewards today:" + "\n" + rewards_text
+    embed = discord.Embed(description = rewards_text)
+    channel = discord.utils.get(client.get_all_channels(), name='general')
+    await channel.send(embed = embed)
+
 #methods for getting suffix in date, ex "May 10th"
 #decides what suffix to use
 async def suffix(d):
@@ -307,11 +442,13 @@ async def messageDaily():
     if dt.now().strftime('%A'). lower() in blacklistedDays:
         return
     if (dt.now().hour == hour) and (dt.now().strftime('%M') == str(minutes)):
-        await dmTasks()
+        await printRewardsasync()
 
 #TODO: save to config file
 #TODO: better help function
 
-messageDaily.start()
+@client.listen()
+async def on_ready():
+    messageDaily.start()
 #run bot using token    
 client.run(TOKEN)
