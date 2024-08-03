@@ -1,0 +1,10 @@
+version: '3.4'
+
+services:
+  discordchickenmessagebot:
+    image: discordchickenmessagebot
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+      environment:
+        - TOKEN
