@@ -1,6 +1,6 @@
 # set time to get message, in 24 hour clock
 messageTime:
-    hour: 11
-    minutes: 43
+    hour: 22
+    minutes: 10
 # days to not send message, capitilization is ignored but spelling is not
 blacklistedDays: []
