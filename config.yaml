@@ -4,3 +4,5 @@ messageTime:
     minutes: 10
 # days to not send message, capitilization is ignored but spelling is not
 blacklistedDays: []
+
+#test
