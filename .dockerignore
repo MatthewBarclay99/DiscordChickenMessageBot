@@ -3,6 +3,7 @@
 **/.classpath
 **/.dockerignore
 **/.env
+#config.yaml
 **/.git
 **/.gitignore
 **/.project

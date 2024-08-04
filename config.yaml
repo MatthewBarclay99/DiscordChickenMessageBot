@@ -4,5 +4,7 @@ messageTime:
     minutes: 10
 # days to not send message, capitilization is ignored but spelling is not
 blacklistedDays: []
-
 #testing 1
+
+
+#docker buildx  build --platform linux/arm64 --pull --file "D:\Projects\DiscordChickenMessageBot/Dockerfile" --tag "discordchickenmessagebot:latest" --label "com.microsoft.created-by=visual-studio-code" "D:\Projects\DiscordChickenMessageBot" 
