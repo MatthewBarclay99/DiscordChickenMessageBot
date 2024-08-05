@@ -24,4 +24,4 @@ jobs:
           TOKEN: ${{ secrets.TOKEN }}
 
       - name: Cleanup Unused Images
-        run: sudo docker image prune -f
+        run: docker image prune -f
