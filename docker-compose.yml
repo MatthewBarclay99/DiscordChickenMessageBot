@@ -6,3 +6,4 @@ services:
       dockerfile: ./Dockerfile
     environment:
       - TOKEN
+    restart: unless-stopped
