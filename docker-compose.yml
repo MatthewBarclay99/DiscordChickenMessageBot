@@ -1,7 +1,6 @@
 services:
-  bot:
+  bdiscordchickenmessagebot:
     build: .
-    container_name: discordchickenmessagebot
     environment:
       - TOKEN
     restart: unless-stopped
