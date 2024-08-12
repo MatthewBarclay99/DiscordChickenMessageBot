@@ -12,8 +12,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-#      - name: set cd
-#        run: cd && cd DiscordChickenMessageBot
+      - name: look around
+        run: ls
 
 #      - name: Update Container
 #        run: git pull
