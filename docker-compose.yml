@@ -1,5 +1,5 @@
 services:
-  bdiscordchickenmessagebot:
+  discordchickenmessagebot:
     build: .
     environment:
       - TOKEN
