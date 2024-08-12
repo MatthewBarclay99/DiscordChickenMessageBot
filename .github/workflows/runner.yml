@@ -19,7 +19,7 @@ jobs:
 #        run: git pull
 
       - name: Run Container
-        run: docker compose up -d --build
+        run: docker compose up --build
         env:
           TOKEN: ${{ secrets.TOKEN }}
 
