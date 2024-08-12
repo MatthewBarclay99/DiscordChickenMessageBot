@@ -19,7 +19,7 @@ jobs:
 #        run: git pull
 
       - name: Run Container
-        run: docker-compose up --force-recreate --build -d
+        run: docker compose up --force-recreate --build -d
         env:
           TOKEN: ${{ secrets.TOKEN }}
 
