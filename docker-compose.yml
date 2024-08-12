@@ -1,9 +1,7 @@
 services:
-  discordchickenmessagebot:
-    image: discordchickenmessagebot
-    build:
-      context: .
-      dockerfile: ./Dockerfile
+  bot:
+    build: .
+    container_name: discordchickenmessagebot
     environment:
       - TOKEN
     restart: unless-stopped

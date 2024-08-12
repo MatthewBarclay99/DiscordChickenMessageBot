@@ -469,8 +469,12 @@ async def printRewardsasync():
     if(rewards_text!=""):
         rewards_text = "🚨🚨🚨" +"\n" + str(rewardCounter) + " rewards today:" + "\n" + rewards_text
         embed = discord.Embed(description = rewards_text)
-        channel = discord.utils.get(client.get_all_channels(), name='general')
-        await channel.send(embed = embed)
+        #channel = discord.utils.get(client.get_all_channels(), name='general')
+        #await channel.send(embed = embed)
+        for guild in client.guilds:
+            for channel in guild.channels:
+                if(channel.name == 'general'):
+                    await channel.send(embed = embed)
 
 #methods for getting suffix in date, ex "May 10th"
 #decides what suffix to use

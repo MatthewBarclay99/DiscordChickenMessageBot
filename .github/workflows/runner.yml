@@ -10,7 +10,7 @@ jobs:
     environment: production
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v3
 
       - name: look around
         run: ls
@@ -19,7 +19,7 @@ jobs:
 #        run: git pull
 
       - name: Run Container
-        run: docker compose up --build
+        run: docker-compose up --force-recreate --build -d
         env:
           TOKEN: ${{ secrets.TOKEN }}
 
